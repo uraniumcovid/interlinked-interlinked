@@ -7,6 +7,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
+mod tui;
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
     pub scan_all_text: bool,
@@ -51,6 +53,8 @@ impl Default for Config {
                 "toml".to_string(),
                 "xml".to_string(),
                 "csv".to_string(),
+                "canvas".to_string(),
+                "excalidraw".to_string(),
             ],
             binary_extensions: vec![
                 "png".to_string(),
@@ -106,9 +110,12 @@ impl Default for Config {
                 ".next".to_string(),
                 ".nuxt".to_string(),
                 "vendor".to_string(),
+                ".obsidian".to_string(),
+                ".trash".to_string(),
+                "Trash".to_string(),
             ],
-            link_pattern: r"\[\[([^\]]+)\]\]".to_string(),
-            tag_pattern: r"(?m)^tags:\s*(.+)$".to_string(),
+            link_pattern: r"\[\[([^\]|]+)(?:\|[^\]]*)?\]\]".to_string(),
+            tag_pattern: r"(?m)^tags:\s*(?:\{([^}]+)\}|(.+))$".to_string(),
             output_format: OutputFormat::Pretty,
         }
     }
@@ -289,7 +296,15 @@ impl FileIndexer {
     }
 
     fn scan_file(&self, path: &Path, index: &mut FileIndex) -> Result<(), Box<dyn std::error::Error>> {
-        let content = fs::read_to_string(path)?;
+        let content = match fs::read_to_string(path) {
+            Ok(content) => content,
+            Err(e) => {
+                // Skip files with invalid UTF-8 or other read errors
+                eprintln!("Warning: Skipping file {}: {}", path.display(), e);
+                return Ok(());
+            }
+        };
+        
         let file_path = path.to_string_lossy().to_string();
         
         for captures in self.link_regex.captures_iter(&content) {
@@ -299,16 +314,22 @@ impl FileIndexer {
         }
         
         for captures in self.tag_regex.captures_iter(&content) {
-            if let Some(tags_line) = captures.get(1) {
-                let tags: Vec<&str> = tags_line.as_str()
-                    .split(',')
-                    .map(|tag| tag.trim())
-                    .filter(|tag| !tag.is_empty())
-                    .collect();
-                
-                for tag in tags {
-                    index.add_tag(&file_path, tag);
-                }
+            let tags_str = if let Some(curly_tags) = captures.get(1) {
+                curly_tags.as_str()
+            } else if let Some(regular_tags) = captures.get(2) {
+                regular_tags.as_str()
+            } else {
+                continue;
+            };
+            
+            let tags: Vec<&str> = if tags_str.contains(',') {
+                tags_str.split(',').map(|tag| tag.trim()).filter(|tag| !tag.is_empty()).collect()
+            } else {
+                tags_str.split_whitespace().filter(|tag| !tag.is_empty()).collect()
+            };
+            
+            for tag in tags {
+                index.add_tag(&file_path, tag);
             }
         }
         
@@ -334,6 +355,9 @@ pub struct Cli {
     
     #[arg(long, help = "Show config path and exit")]
     pub show_config_path: bool,
+    
+    #[arg(short, long, help = "Launch interactive TUI")]
+    pub interactive: bool,
 }
 
 impl FileIndex {
@@ -429,13 +453,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let indexer = FileIndexer::new(config)?;
     let index = indexer.scan_directory(directory)?;
     
-    let output_format = if cli.json {
-        &OutputFormat::Json
+    if cli.interactive {
+        tui::run_tui(index)?;
     } else {
-        &indexer.config.output_format
-    };
-    
-    index.print_summary(output_format);
+        let output_format = if cli.json {
+            &OutputFormat::Json
+        } else {
+            &indexer.config.output_format
+        };
+        
+        index.print_summary(output_format);
+    }
     
     Ok(())
 }
