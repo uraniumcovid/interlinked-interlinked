@@ -7,6 +7,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
+mod cache;
 mod tui;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -358,6 +359,15 @@ pub struct Cli {
     
     #[arg(short, long, help = "Launch interactive TUI")]
     pub interactive: bool,
+    
+    #[arg(long, help = "Rebuild cache (ignore existing cache)")]
+    pub rebuild_cache: bool,
+    
+    #[arg(long, help = "Clear cache for directory and exit")]
+    pub clear_cache: bool,
+    
+    #[arg(long, help = "Show cache info and exit")]
+    pub cache_info: bool,
 }
 
 impl FileIndex {
@@ -448,10 +458,40 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     
     let directory = cli.directory.as_deref().unwrap_or(".");
-    println!("Scanning directory: {}", directory);
+    let abs_directory = std::fs::canonicalize(directory)?.to_string_lossy().to_string();
+    
+    let cache = cache::Cache::new()?;
+    
+    // Handle cache management commands
+    if cli.cache_info {
+        cache.info(&abs_directory)?;
+        return Ok(());
+    }
+    
+    if cli.clear_cache {
+        cache.clear(&abs_directory)?;
+        return Ok(());
+    }
     
     let indexer = FileIndexer::new(config)?;
-    let index = indexer.scan_directory(directory)?;
+    
+    // Try to load from cache first (unless rebuild is requested)
+    let index = if cli.rebuild_cache {
+        println!("Rebuilding cache - scanning directory: {}", directory);
+        let file_mtimes = cache.collect_file_mtimes(&abs_directory)?;
+        let index = indexer.scan_directory(directory)?;
+        cache.save(&index, &abs_directory, file_mtimes)?;
+        index
+    } else if let Some(cached_index) = cache.load(&abs_directory)? {
+        println!("Using cached index for: {}", directory);
+        cached_index
+    } else {
+        println!("No valid cache found - scanning directory: {}", directory);
+        let file_mtimes = cache.collect_file_mtimes(&abs_directory)?;
+        let index = indexer.scan_directory(directory)?;
+        cache.save(&index, &abs_directory, file_mtimes)?;
+        index
+    };
     
     if cli.interactive {
         tui::run_tui(index)?;
