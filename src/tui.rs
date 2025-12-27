@@ -192,26 +192,26 @@ impl App {
                         if let Some(sources) = self.index.backlinks.get(selected_item) {
                             let mut lines = vec![
                                 Line::from(vec![
-                                    Span::styled("[[", Style::default().fg(Color::DarkGray)),
-                                    Span::styled(selected_item, Style::default().fg(Color::Cyan).bold()),
-                                    Span::styled("]]", Style::default().fg(Color::DarkGray)),
+                                    Span::styled("[[", Style::default().fg(Color::Rgb(255, 107, 138))),
+                                    Span::styled(selected_item, Style::default().fg(Color::White).bold()),
+                                    Span::styled("]]", Style::default().fg(Color::Rgb(255, 107, 138))),
                                     Span::styled(format!(" ({} connections)", sources.len()), 
-                                        Style::default().fg(Color::Yellow)),
+                                        Style::default().fg(Color::Rgb(255, 107, 138))),
                                 ]),
                                 Line::from(""),
-                                Line::from(Span::styled("Connected files:", Style::default().fg(Color::Green).bold())),
+                                Line::from(Span::styled("Connected files:", Style::default().fg(Color::Rgb(255, 107, 138)).bold())),
                             ];
                             
                             for (i, source) in sources.iter().enumerate() {
                                 if i >= 20 { // Limit display to avoid overwhelming
                                     lines.push(Line::from(Span::styled(
                                         format!("  ... and {} more", sources.len() - i),
-                                        Style::default().fg(Color::DarkGray).italic()
+                                        Style::default().fg(Color::White).italic()
                                     )));
                                     break;
                                 }
                                 lines.push(Line::from(vec![
-                                    Span::styled("  • ", Style::default().fg(Color::Blue)),
+                                    Span::styled("  • ", Style::default().fg(Color::Rgb(255, 107, 138))),
                                     Span::styled(source, Style::default().fg(Color::White)),
                                 ]));
                             }
@@ -222,25 +222,25 @@ impl App {
                         if let Some(files) = self.index.tags.get(selected_item) {
                             let mut lines = vec![
                                 Line::from(vec![
-                                    Span::styled("#", Style::default().fg(Color::Magenta)),
-                                    Span::styled(selected_item, Style::default().fg(Color::Magenta).bold()),
+                                    Span::styled("#", Style::default().fg(Color::Rgb(255, 107, 138))),
+                                    Span::styled(selected_item, Style::default().fg(Color::White).bold()),
                                     Span::styled(format!(" ({} files)", files.len()), 
-                                        Style::default().fg(Color::Yellow)),
+                                        Style::default().fg(Color::Rgb(255, 107, 138))),
                                 ]),
                                 Line::from(""),
-                                Line::from(Span::styled("Tagged files:", Style::default().fg(Color::Green).bold())),
+                                Line::from(Span::styled("Tagged files:", Style::default().fg(Color::Rgb(255, 107, 138)).bold())),
                             ];
                             
                             for (i, file) in files.iter().enumerate() {
                                 if i >= 20 {
                                     lines.push(Line::from(Span::styled(
                                         format!("  ... and {} more", files.len() - i),
-                                        Style::default().fg(Color::DarkGray).italic()
+                                        Style::default().fg(Color::White).italic()
                                     )));
                                     break;
                                 }
                                 lines.push(Line::from(vec![
-                                    Span::styled("  • ", Style::default().fg(Color::Blue)),
+                                    Span::styled("  • ", Style::default().fg(Color::Rgb(255, 107, 138))),
                                     Span::styled(file, Style::default().fg(Color::White)),
                                 ]));
                             }
@@ -253,12 +253,17 @@ impl App {
         
         vec![Line::from(Span::styled(
             "Select an item to see details...",
-            Style::default().fg(Color::DarkGray).italic()
+            Style::default().fg(Color::White).italic()
         ))]
     }
 
     fn ui(&mut self, f: &mut Frame) {
         let size = f.area();
+        
+        // Set black background for entire terminal
+        let background = Block::default()
+            .style(Style::default().bg(Color::Black));
+        f.render_widget(background, size);
 
         // Main layout: tabs, content, help
         let main_chunks = Layout::default()
@@ -279,11 +284,11 @@ impl App {
             .block(Block::default()
                 .borders(Borders::ALL)
                 .title(" 🔗 Interlinked ")
-                .title_style(Style::default().fg(Color::Cyan).bold())
-                .border_style(Style::default().fg(Color::Blue)))
+                .title_style(Style::default().fg(Color::White).bold())
+                .border_style(Style::default().fg(Color::Rgb(255, 107, 138))))
             .select(self.tab_index)
-            .style(Style::default().fg(Color::Gray))
-            .highlight_style(Style::default().fg(Color::Cyan).bold().bg(Color::Blue));
+            .style(Style::default().fg(Color::White))
+            .highlight_style(Style::default().fg(Color::Black).bold().bg(Color::Rgb(255, 107, 138)));
         f.render_widget(tabs, main_chunks[0]);
 
         // Content area: split into list and details
@@ -310,8 +315,8 @@ impl App {
                 };
 
                 let icon_style = match self.current_tab {
-                    Tab::Links | Tab::Backlinks => Style::default().fg(Color::Cyan),
-                    Tab::Tags => Style::default().fg(Color::Magenta),
+                    Tab::Links | Tab::Backlinks => Style::default().fg(Color::Rgb(255, 107, 138)),
+                    Tab::Tags => Style::default().fg(Color::Rgb(255, 107, 138)),
                 };
 
                 let icon = match self.current_tab {
@@ -328,7 +333,7 @@ impl App {
                     ),
                     Span::styled(
                         format!(" ({})", count),
-                        Style::default().fg(Color::Yellow)
+                        Style::default().fg(Color::Rgb(255, 107, 138))
                     ),
                 ]);
 
@@ -346,9 +351,9 @@ impl App {
             .block(Block::default()
                 .borders(Borders::ALL)
                 .title(list_title)
-                .title_style(Style::default().fg(Color::Green).bold())
-                .border_style(Style::default().fg(Color::Green)))
-            .highlight_style(Style::default().bg(Color::Blue).bold());
+                .title_style(Style::default().fg(Color::White).bold())
+                .border_style(Style::default().fg(Color::Rgb(255, 107, 138))))
+            .highlight_style(Style::default().bg(Color::Rgb(255, 107, 138)).fg(Color::Black).bold());
 
         f.render_stateful_widget(list, content_chunks[0], &mut self.list_state);
 
@@ -358,8 +363,8 @@ impl App {
             .block(Block::default()
                 .borders(Borders::ALL)
                 .title(" 📄 Details ")
-                .title_style(Style::default().fg(Color::Cyan).bold())
-                .border_style(Style::default().fg(Color::Cyan)))
+                .title_style(Style::default().fg(Color::White).bold())
+                .border_style(Style::default().fg(Color::Rgb(255, 107, 138))))
             .wrap(ratatui::widgets::Wrap { trim: true });
 
         f.render_widget(details_paragraph, content_chunks[1]);
@@ -380,9 +385,9 @@ impl App {
         };
 
         let help_content = vec![
-            Span::styled(help_text, Style::default().fg(Color::Gray)),
+            Span::styled(help_text, Style::default().fg(Color::White)),
             if !search_indicator.is_empty() {
-                Span::styled(search_indicator, Style::default().fg(Color::Yellow).bold())
+                Span::styled(search_indicator, Style::default().fg(Color::Rgb(255, 107, 138)).bold())
             } else {
                 Span::raw("")
             },
@@ -391,7 +396,7 @@ impl App {
         let help = Paragraph::new(Line::from(help_content))
             .block(Block::default()
                 .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::DarkGray)));
+                .border_style(Style::default().fg(Color::Rgb(255, 107, 138))));
         f.render_widget(help, main_chunks[2]);
     }
 }
